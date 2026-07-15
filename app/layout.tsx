@@ -22,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div className="brand">กคช · VOC<span>Voice of Customer · 2569</span></div>
               <nav className="nav">
                 <Link href="/dashboard">📊 ภาพรวม</Link>
+                <Link href="/channels">📥 8 ช่องทาง</Link>
                 <Link href="/voc">💬 รายการ VOC</Link>
                 <Link href="/prioritize">🎯 จัดลำดับ</Link>
               </nav>
