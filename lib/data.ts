@@ -10,7 +10,7 @@ export type CaseStatus =
 export interface Voc {
   id: string; ref: string;
   channel: string; source: string;
-  product: string; project: string;
+  product: string; project: string; projectType: string;
   journey: string; topic: string; voice: string;
   sentiment: Sentiment; priority: Priority;
   owner: string; status: CaseStatus;
@@ -44,6 +44,13 @@ const VOICES = [
   { topic: 'ไฟส่องสว่างชำรุด', voice: 'ไฟทางเดินและลานจอดรถดับหลายจุด กลางคืนมืดและไม่ปลอดภัย ช่วยซ่อมด่วน', sent: 'Negative' as Sentiment, cat: 'คุณภาพโครงการและการก่อสร้าง', owner: 'ฝ่ายปรับปรุงและบำรุงรักษาชุมชน' },
 ];
 function pick<T>(a: T[], i: number) { return a[i % a.length]; }
+// เดาประเภทโครงการจากชื่อ (สำหรับ mock; ของจริงอ่านจากคอลัมน์ project_type)
+export function projectTypeOf(name: string): string {
+  if (name.startsWith('เคหะชุมชนและบริการชุมชน')) return 'เคหะชุมชนและบริการชุมชน';
+  if (name.startsWith('บ้านเอื้ออาทร')) return 'บ้านเอื้ออาทร';
+  return 'เคหะชุมชน';
+}
+const MOCK_PROJECTS = ['บ้านเอื้ออาทร รังสิต คลอง 1', 'เคหะชุมชนดินแดง', 'บ้านเอื้ออาทร บางบัวทอง 1', 'เคหะชุมชนห้วยขวาง', 'เคหะชุมชนและบริการชุมชน ร่มเกล้า'];
 const MOCK: Voc[] = Array.from({ length: 60 }, (_, i) => {
   const v = VOICES[i % VOICES.length];
   const ch = pick(CHANNELS, i * 3);
@@ -54,7 +61,7 @@ const MOCK: Voc[] = Array.from({ length: 60 }, (_, i) => {
     id: String(i + 1), ref: 'VOC-' + (2569000 + i),
     channel: ch, source: ch === 'Social Media' ? (i % 2 ? 'Line OA' : 'Facebook') : ch,
     product: pick(['อาคารเพื่อขาย/เช่าซื้อ', 'อาคารเช่า', 'เช่าจัดประโยชน์'], i),
-    project: pick(['บ้านเอื้ออาทร รังสิต คลอง 1', 'เคหะชุมชนดินแดง', 'บ้านเอื้ออาทร บางบัวทอง 1', 'เคหะชุมชนห้วยขวาง'], i),
+    project: pick(MOCK_PROJECTS, i), projectType: projectTypeOf(pick(MOCK_PROJECTS, i)),
     journey: pick(['Awareness', 'Consideration', 'Purchase', 'Service', 'Loyalty', 'Win Back'], i),
     topic: v.topic, voice: v.voice, sentiment: v.sent, priority: prio,
     owner: v.owner, status: pick(CASE_STATUS, i),
@@ -73,7 +80,7 @@ function mapRow(r: any): Voc {
   return {
     id: String(r.id), ref: r.ref_code ?? String(r.id),
     channel: chan?.name ?? r.channel_id ?? '', source: r.source ?? '',
-    product: r.product_group ?? '', project: proj?.name ?? '',
+    product: r.product_group ?? '', project: proj?.name ?? '', projectType: proj?.project_type ?? '',
     journey: r.journey_stage ?? '', topic: r.topic ?? '', voice: r.raw_text ?? '',
     sentiment: (a.sentiment ?? 'Neutral') as Sentiment, priority: (a.priority ?? 'Low') as Priority,
     owner: r.owner_dept ?? '', status: (r.status ?? 'รับเรื่อง') as CaseStatus,
@@ -96,15 +103,58 @@ async function fetchAll(): Promise<Voc[]> {
 }
 
 // ---------- API ที่หน้าเว็บเรียกใช้ ----------
-export async function listVOC(opts: { q?: string; channel?: string; limit?: number } = {}): Promise<Voc[]> {
+export async function listVOC(opts: { q?: string; channel?: string; ptype?: string; proj?: string; limit?: number } = {}): Promise<Voc[]> {
   let r = await fetchAll();
   if (opts.channel) r = r.filter(x => x.channel === opts.channel);
+  if (opts.ptype) r = r.filter(x => x.projectType === opts.ptype);
+  if (opts.proj) r = r.filter(x => x.project === opts.proj);
   if (opts.q) { const q = opts.q.toLowerCase(); r = r.filter(x => (x.voice + x.topic + x.ref + x.owner + x.project).toLowerCase().includes(q)); }
   return r.slice(0, opts.limit ?? r.length);
+}
+// รายชื่อโครงการ (distinct) พร้อมประเภท — ใช้ทำ cascade filter
+export async function listProjects(): Promise<{ name: string; type: string }[]> {
+  const all = await fetchAll();
+  const m = new Map<string, string>();
+  all.forEach(x => { if (x.project && !m.has(x.project)) m.set(x.project, x.projectType || projectTypeOf(x.project)); });
+  return Array.from(m, ([name, type]) => ({ name, type })).sort((a, b) => a.name.localeCompare(b.name, 'th'));
 }
 export async function getVOC(id: string): Promise<Voc | undefined> {
   return (await fetchAll()).find(x => x.id === id);
 }
+
+// ---------- Timeline การดำเนินการ (action_log) ----------
+export interface ActionItem { text: string; status: string; by: string; at: string }
+export async function getTimeline(voc: Voc): Promise<ActionItem[]> {
+  if (hasSupabase && supabase) {
+    const { data, error } = await supabase
+      .from('action_log')
+      .select('action_text, status, acted_at, profiles(full_name)')
+      .eq('voc_id', voc.id)
+      .order('acted_at', { ascending: true });
+    if (!error && data && data.length) {
+      return data.map((r: any) => ({
+        text: r.action_text, status: r.status ?? '',
+        by: (Array.isArray(r.profiles) ? r.profiles[0] : r.profiles)?.full_name ?? 'เจ้าหน้าที่',
+        at: (r.acted_at ?? '').slice(0, 16).replace('T', ' '),
+      }));
+    }
+  }
+  // mock: สร้าง timeline ตามลำดับสถานะจนถึงสถานะปัจจุบัน
+  const idx = CASE_STATUS.indexOf(voc.status);
+  const TEXT: Record<CaseStatus, string> = {
+    'รับเรื่อง': 'ระบบรับเรื่องจากช่องทาง ' + voc.channel,
+    'ส่งต่อหน่วยงานที่รับผิดชอบ': 'แอดมินส่งต่อเรื่องไปยัง ' + (voc.owner || 'หน่วยงานที่รับผิดชอบ'),
+    'กำลังดำเนินการ': 'หน่วยงานรับเรื่องและเริ่มดำเนินการ',
+    'รอข้อมูลเพิ่มเติม': 'ขอข้อมูลเพิ่มเติมจากลูกค้า/หน่วยงาน',
+    'ติดตามผล': 'แอดมินติดตามความคืบหน้าจากหน่วยงาน',
+    'ดำเนินการเสร็จ/ปิดเรื่อง': 'ดำเนินการแล้วเสร็จ แจ้งผลและปิดเรื่อง',
+  };
+  return CASE_STATUS.slice(0, idx + 1).map((s, i) => ({
+    text: TEXT[s], status: s, by: i === 0 ? 'ระบบ' : 'แอดมิน VOC',
+    at: voc.occurredAt + (i ? ` (+${i} วัน)` : ''),
+  }));
+}
+
 export async function pipelineStats(): Promise<Record<string, number>> {
   const all = await fetchAll();
   const st: Record<string, number> = {}; CASE_STATUS.forEach(s => (st[s] = 0));
