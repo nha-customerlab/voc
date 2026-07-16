@@ -10,9 +10,9 @@ const COLS: { key: keyof Voc; label: string }[] = [
   { key: 'owner', label: 'ฝ่ายรับผิดชอบ' }, { key: 'status', label: 'สถานะ' }, { key: 'occurredAt', label: 'วันที่เกิดเรื่อง' },
 ];
 
-function cell(r: Voc, k: keyof Voc) {
+function cell(r: Voc, k: keyof Voc): string {
   const v = r[k];
-  return k === 'sentiment' ? (SENT_TH[v as string] || v) : String(v ?? '');
+  return k === 'sentiment' ? (SENT_TH[v as string] || String(v)) : String(v ?? '');
 }
 
 function download(name: string, content: string, mime: string) {
