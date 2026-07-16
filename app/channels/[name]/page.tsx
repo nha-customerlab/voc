@@ -1,5 +1,8 @@
 import Link from 'next/link';
 import { listVOC, CHANNELS } from '../../../lib/data';
+import { computeCloud } from '../../../lib/cloud';
+import WordCloud from '../../components/WordCloud';
+import TrendChart from '../../components/TrendChart';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +29,20 @@ export default async function ChannelDetail({ params }: { params: { name: string
   rows.forEach(r => { if (r.topic) tp[r.topic] = (tp[r.topic] || 0) + 1; });
   const topTopics = Object.entries(tp).sort((a, b) => b[1] - a[1]).slice(0, 6);
 
+  // แหล่งที่มาในช่องทาง (เช่น Social → Facebook / Line OA)
+  const src: Record<string, number> = {};
+  rows.forEach(r => { const s = r.source || name; src[s] = (src[s] || 0) + 1; });
+  const sources = Object.entries(src).sort((a, b) => b[1] - a[1]);
+
+  // แนวโน้มรายวัน (นับจากวันที่เกิดเรื่อง)
+  const byDay: Record<string, number> = {};
+  rows.forEach(r => { if (r.occurredAt) byDay[r.occurredAt] = (byDay[r.occurredAt] || 0) + 1; });
+  const trend = Object.entries(byDay).sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([d, v]) => ({ label: d.slice(5).split('-').reverse().join('/'), value: v }));
+
+  // Word Cloud เฉพาะช่องทางนี้ — คลิกคำเพื่อค้นหาในรายการ VOC
+  const cloud = computeCloud(rows);
+
   return (
     <>
       <header className="top">
@@ -45,6 +62,27 @@ export default async function ChannelDetail({ params }: { params: { name: string
               <div className="card" style={{ marginBottom: 0 }}><div style={{ fontSize: 12, color: '#64748b' }}>% เสียงเชิงบวก</div><div style={{ fontSize: 26, fontWeight: 700, color: '#16a34a' }}>{posPct}%</div></div>
               <div className="card" style={{ marginBottom: 0 }}><div style={{ fontSize: 12, color: '#64748b' }}>% เสียงเชิงลบ</div><div style={{ fontSize: 26, fontWeight: 700, color: '#dc2626' }}>{negPct}%</div></div>
               <div className="card" style={{ marginBottom: 0 }}><div style={{ fontSize: 12, color: '#64748b' }}>เร่งด่วนสูง (High)</div><div style={{ fontSize: 26, fontWeight: 700, color: '#f59e0b' }}>{high}</div></div>
+            </div>
+
+            {/* แนวโน้ม + แหล่งที่มา */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 16, marginBottom: 16 }}>
+              <div className="card" style={{ marginBottom: 0 }}>
+                <h3>แนวโน้มจำนวนเสียงลูกค้า (รายวัน)</h3>
+                <TrendChart points={trend} />
+              </div>
+              <div className="card" style={{ marginBottom: 0 }}>
+                <h3>แหล่งที่มาในช่องทางนี้</h3>
+                {sources.map(([k, v]) => (
+                  <div key={k} style={{ margin: '10px 0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 3 }}>
+                      <span>{k}</span><span style={{ fontWeight: 600 }}>{v} ({Math.round(v / total * 100)}%)</span>
+                    </div>
+                    <div style={{ height: 8, background: '#eef2f7', borderRadius: 6 }}>
+                      <div style={{ width: Math.round(v / total * 100) + '%', height: '100%', background: '#2e6cf0', borderRadius: 6 }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 16 }}>
@@ -82,6 +120,12 @@ export default async function ChannelDetail({ params }: { params: { name: string
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Word Cloud */}
+            <div className="card" style={{ marginTop: 16 }}>
+              <h3>☁️ Word Cloud — คำที่ลูกค้าพูดถึงมากในช่องทางนี้ (คลิกคำเพื่อค้นหา)</h3>
+              <WordCloud freq={cloud} basePath="/voc" />
             </div>
 
             {/* Recent list */}
