@@ -1,4 +1,5 @@
 import { listVOC, sentimentStats } from '../../lib/data';
+import ReviewQueue from './ReviewQueue';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,6 +55,13 @@ export default async function Analyze() {
           <div className="card" style={{ marginBottom: 0 }}><div style={{ fontSize: 12, color: '#64748b' }}>% เสียงเชิงบวก</div><div style={{ fontSize: 26, fontWeight: 700, color: '#16a34a' }}>{s.posPct}%</div></div>
           <div className="card" style={{ marginBottom: 0 }}><div style={{ fontSize: 12, color: '#64748b' }}>% เป็นกลาง</div><div style={{ fontSize: 26, fontWeight: 700, color: '#64748b' }}>{s.neuPct}%</div></div>
           <div className="card" style={{ marginBottom: 0 }}><div style={{ fontSize: 12, color: '#64748b' }}>% เสียงเชิงลบ</div><div style={{ fontSize: 26, fontWeight: 700, color: '#dc2626' }}>{s.negPct}%</div></div>
+        </div>
+
+        {/* คิวยืนยัน — AI ไม่แน่ใจ */}
+        <div className="card">
+          <h3>⚠️ รายการที่ AI ไม่แน่ใจ — รอเจ้าหน้าที่ยืนยัน ({rows.filter(r => r.sentUncertain && !r.sentManual).length})</h3>
+          <ReviewQueue items={rows.filter(r => r.sentUncertain && !r.sentManual).slice(0, 10)
+            .map(r => ({ id: r.id, ref: r.ref, voice: r.voice, reason: r.sentReason, channel: r.channel, project: r.project }))} />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 16 }}>
