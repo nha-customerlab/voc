@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getVOC, getTimeline, CASE_STATUS } from '../../../lib/data';
 import { notFound } from 'next/navigation';
+import CaseActions from './CaseActions';
 
 export const dynamic = 'force-dynamic';
 
@@ -65,7 +66,8 @@ export default async function VocDetail({ params }: { params: { id: string } }) 
               </div>
             ))}
           </div>
-          <div style={{ fontSize:12, color:'var(--muted)' }}>* เมื่อเชื่อม Supabase แล้ว timeline นี้อ่านจากตาราง action_log จริง (แอดมินเป็นผู้บันทึก — human-in-the-loop)</div>
+          <div style={{ fontSize:12, color:'var(--muted)', marginBottom:12 }}>* เมื่อเชื่อม Supabase แล้ว timeline นี้อ่านจากตาราง action_log จริง (แอดมินเป็นผู้บันทึก — human-in-the-loop)</div>
+          <CaseActions vocId={r.id} currentStatus={r.status} currentOwner={r.owner} />
         </div>
       </div>
     </>
