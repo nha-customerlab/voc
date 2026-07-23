@@ -4,7 +4,7 @@
 // Excel: ให้บันทึกเป็น CSV (UTF-8) ก่อนอัปโหลด — เทมเพลตดาวน์โหลดได้ในหน้านี้
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-import { analyzeText } from '../../lib/ai';
+import { analyzeText, analyzeSmart, AiResult } from '../../lib/ai';
 
 // ช่องทาง 8 ช่อง (id ตรงตาราง channel ใน Supabase)
 const CH = [
@@ -57,6 +57,8 @@ export default function ImportPage() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
+  const [useLLM, setUseLLM] = useState(false);
+  const [prog, setProg] = useState('');
 
   const ch = CH.find(c => c.id === chId)!;
 
@@ -142,8 +144,22 @@ export default function ImportPage() {
     try {
       const { data: u } = await supabase.auth.getUser();
       const stamp = Date.now();
-      // วิเคราะห์อัตโนมัติด้วย AI (rule/keyword) ทุกแถวก่อนบันทึก — เจ้าหน้าที่แก้ไขภายหลังได้
-      const ai = ok.map(r => analyzeText((r.topic ? r.topic + ' ' : '') + r.text, chId));
+      // วิเคราะห์อัตโนมัติทุกแถวก่อนบันทึก — LLM (ถ้าเลือก) หรือ rule/keyword; เจ้าหน้าที่แก้ไขภายหลังได้
+      let ai: AiResult[];
+      let llmCount = 0;
+      if (useLLM) {
+        ai = [];
+        for (let i = 0; i < ok.length; i += 3) {   // ทีละ 3 แถว กัน rate limit
+          const batch = await Promise.all(ok.slice(i, i + 3).map(r =>
+            analyzeSmart((r.topic ? r.topic + ' ' : '') + r.text, chId)));
+          batch.forEach(b => { if (b.via === 'llm') llmCount++; });
+          ai.push(...batch);
+          setProg('วิเคราะห์ด้วย AI แล้ว ' + Math.min(i + 3, ok.length) + '/' + ok.length + ' แถว…');
+        }
+        setProg('');
+      } else {
+        ai = ok.map(r => analyzeText((r.topic ? r.topic + ' ' : '') + r.text, chId));
+      }
       const payload = ok.map((r, i) => ({
         ref_code: 'VOC-' + stamp + '-' + (i + 1),
         channel_id: chId,
@@ -178,7 +194,9 @@ export default function ImportPage() {
           if (e2) throw e2;
         }
       }
-      setMsg('นำเข้าสำเร็จ ' + ok.length + ' รายการ เข้าช่องทาง "' + ch.name + '" — ดูได้ในเมนูรายการ VOC');
+      setMsg('นำเข้าสำเร็จ ' + ok.length + ' รายการ เข้าช่องทาง "' + ch.name + '"' +
+        (useLLM ? (llmCount === ok.length ? ' · วิเคราะห์ด้วย LLM ทั้งหมด' : ' · LLM ' + llmCount + ' แถว, rule-based ' + (ok.length - llmCount) + ' แถว (LLM ใช้ไม่ได้บางส่วน)') : '') +
+        ' — ดูได้ในเมนูรายการ VOC');
       setRows([]); setFileName('');
     } catch (e: any) {
       setErr('นำเข้าไม่สำเร็จ: ' + (e.message || String(e)));
@@ -186,14 +204,15 @@ export default function ImportPage() {
     setBusy(false);
   }
 
-  const blocked = role === 'executive';
+  // นำเข้าข้อมูลเป็นสิทธิ์ของแอดมินเท่านั้น (operator/executive เข้าไม่ได้)
+  const blocked = role !== 'admin' && role !== 'mock' && role !== 'none';
 
   return (
     <>
       <header className="top"><h1>นำเข้าข้อมูล (อัปโหลดไฟล์)</h1><div className="sub">CSV → ตรวจสอบ → บันทึกเข้าระบบ · เรียลไทม์เฉพาะ Social (ผ่าน API)</div></header>
       <div className="content">
         {blocked ? (
-          <div className="card">👁️ บทบาทผู้บริหาร — ดูข้อมูลอย่างเดียว ไม่สามารถนำเข้าข้อมูลได้</div>
+          <div className="card">🔒 เมนูนำเข้าข้อมูลสำหรับบทบาทแอดมินเท่านั้น</div>
         ) : (
         <>
         {/* ขั้น 1: เลือกช่องทาง */}
@@ -242,7 +261,15 @@ export default function ImportPage() {
                 ? <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>* โหมดข้อมูลจำลอง — ปุ่มบันทึกจะใช้ได้เมื่อเชื่อม Supabase</div>
                 : role === 'none'
                 ? <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>* กรุณาเข้าสู่ระบบก่อนนำเข้าข้อมูล</div>
-                : <button className="btn" onClick={save} disabled={busy || !ok.length}>{busy ? 'กำลังนำเข้า…' : '💾 บันทึก ' + ok.length + ' รายการเข้าระบบ'}</button>}
+                : (
+                <>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginBottom: 10, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={useLLM} onChange={e => setUseLLM(e.target.checked)} />
+                    🧠 วิเคราะห์ด้วย LLM จริง (แม่นกว่า แต่ช้ากว่า — ต้องตั้งค่า Edge Function ก่อน, ถ้าใช้ไม่ได้จะสลับเป็น rule-based ให้อัตโนมัติ)
+                  </label>
+                  <button className="btn" onClick={save} disabled={busy || !ok.length}>{busy ? (prog || 'กำลังนำเข้า…') : '💾 บันทึก ' + ok.length + ' รายการเข้าระบบ'}</button>
+                </>
+                )}
             </div>
           </div>
         )}
