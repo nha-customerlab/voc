@@ -9,7 +9,7 @@ const ITEMS: { href: string; label: string; staffOnly?: boolean; adminOnly?: boo
   { href: '/dashboard', label: '📊 ภาพรวม' },
   { href: '/channels', label: '📥 8 ช่องทาง' },
   { href: '/voc', label: '💬 รายการ VOC' },
-  { href: '/import', label: '📤 นำเข้าข้อมูล', staffOnly: true },
+  { href: '/import', label: '📤 นำเข้าข้อมูล', adminOnly: true },
   { href: '/analyze', label: '🤖 AI วิเคราะห์' },
   { href: '/prioritize', label: '🎯 จัดลำดับ' },
   { href: '/reports', label: '📄 รายงานข้อมูล' },
