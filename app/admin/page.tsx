@@ -8,7 +8,7 @@ const ROLE_TH: Record<string, string> = { pending: 'รออนุมัติ'
 const ROLE_RIGHT: Record<string, string> = {
   pending: '⏳ ยังเข้าใช้งานไม่ได้ — รอกำหนดบทบาท',
   admin: 'นำเข้า/ส่งออก/แก้ไข/จัดการระบบ',
-  operator: 'ดู/ส่งออก/อัปเดตสถานะ/นำเข้า',
+  operator: 'ดู/ส่งออก/อัปเดตสถานะ',
   executive: 'ดู/ส่งออก (อ่านอย่างเดียว)',
 };
 const CHANNELS = [
