@@ -62,9 +62,9 @@ export default function ChannelsView({ rows }: { rows: Voc[] }) {
       <div className="content">
         {/* ===== ภาพรวม (แสดงเมื่อยังไม่เลือกช่องทาง) ===== */}
         {!sel && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))', gap: 16, marginBottom: 16 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 16 }}>
             {/* หน้ายิ้ม/นิ่ง/เศร้า */}
-            <div className="card" style={{ marginBottom: 0 }}>
+            <div className="card" style={{ marginBottom: 0, flex: '1 1 300px' }}>
               <h3>ความรู้สึกของลูกค้า (ภาพรวมทั้ง 8 ช่องทาง)</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginTop: 12, textAlign: 'center' }}>
                 {faces.map(f => (
@@ -78,23 +78,29 @@ export default function ChannelsView({ rows }: { rows: Voc[] }) {
               </div>
             </div>
 
-            {/* เทียบช่องทาง — แถบ stacked sentiment */}
-            <div className="card" style={{ marginBottom: 0 }}>
-              <h3>เสียงลูกค้าแยกตามช่องทาง (เรียงมาก→น้อย)</h3>
-              {[...stats].sort((a, b) => b.count - a.count).map(c => (
-                <div key={c.name} style={{ margin: '10px 0', cursor: 'pointer' }} onClick={() => setSel(c.name)}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 4 }}>
-                    <span>{ICON[c.name]} {c.name}</span>
-                    <span><b>{c.count.toLocaleString()}</b> <span style={{ color: 'var(--muted)' }}>({Math.round(c.count / maxCount * 100)}%)</span></span>
-                  </div>
-                  <div style={{ display: 'flex', height: 10, borderRadius: 6, overflow: 'hidden', background: '#eef2f7' }} title={`บวก ${c.posPct}% · กลาง ${c.neuPct}% · ลบ ${c.negPct}%`}>
-                    <div style={{ width: c.posPct + '%', background: '#16a34a' }} />
-                    <div style={{ width: c.neuPct + '%', background: '#f59e0b' }} />
-                    <div style={{ width: c.negPct + '%', background: '#dc2626' }} />
-                  </div>
-                </div>
-              ))}
-              <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 8 }}>🟢 บวก · 🟡 กลาง · 🔴 ลบ — คลิกแถวเพื่อดูรายละเอียดช่องทาง</div>
+            {/* เทียบช่องทาง — กราฟแท่งแนวตั้ง (stacked ตามอารมณ์) */}
+            <div className="card" style={{ marginBottom: 0, flex: '2 1 460px' }}>
+              <h3>เสียงลูกค้าแยกตามช่องทาง</h3>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 210, padding: '14px 0 0' }}>
+                {stats.map((c, i) => {
+                  const barH = Math.max(4, Math.round(c.count / maxCount * 150));
+                  const seg = (v: number) => (c.count ? Math.round(barH * v / c.count) : 0);
+                  return (
+                    <div key={c.name} onClick={() => setSel(c.name)} title={`${c.name}\nรวม ${c.count} · บวก ${c.posPct}% กลาง ${c.neuPct}% ลบ ${c.negPct}%`}
+                      className="chan-bar" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4 }}>{c.count}</div>
+                      <div style={{ width: '78%', maxWidth: 40, height: barH, display: 'flex', flexDirection: 'column', borderRadius: '6px 6px 0 0', overflow: 'hidden' }}>
+                        <div style={{ height: seg(c.neg), background: '#dc2626' }} />
+                        <div style={{ height: seg(c.neu), background: '#f59e0b' }} />
+                        <div style={{ flex: 1, background: '#16a34a' }} />
+                      </div>
+                      <div style={{ fontSize: 17, marginTop: 6 }}>{ICON[c.name]}</div>
+                      <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>{i + 1}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 10, textAlign: 'center' }}>🟢 บวก · 🟡 กลาง · 🔴 ลบ — คลิกแท่งเพื่อดูรายละเอียดช่องทาง (เลข 1–8 ตรงกับการ์ดด้านล่าง)</div>
             </div>
           </div>
         )}
@@ -107,7 +113,10 @@ export default function ChannelsView({ rows }: { rows: Voc[] }) {
           {stats.map((c, i) => (
             <div key={c.name} className={'card chan-card' + (sel === c.name ? ' sel' : '')} style={{ marginBottom: 0 }}
               onClick={() => setSel(sel === c.name ? null : c.name)}>
-              <h3 style={{ marginBottom: 8, fontSize: 14 }}><span style={{ fontSize: 18, marginRight: 6 }}>{ICON[c.name]}</span>{i + 1}. {c.name}</h3>
+              <h3 title={c.name} style={{ marginBottom: 8, fontSize: 13.5, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                <span style={{ fontSize: 18, flex: '0 0 auto' }}>{ICON[c.name]}</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{i + 1}. {c.name}</span>
+              </h3>
               <div style={{ fontSize: 24, fontWeight: 700, color: '#1f3a93' }}>{c.count.toLocaleString()}<span style={{ fontSize: 12, color: '#64748b', fontWeight: 400 }}> รายการ</span></div>
               <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 12 }}>
                 <span>บวก <b style={{ color: '#16a34a' }}>{c.posPct}%</b></span>
