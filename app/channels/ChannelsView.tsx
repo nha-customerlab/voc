@@ -144,8 +144,8 @@ export default function ChannelsView({ rows }: { rows: Voc[] }) {
               <div style={{ fontSize: 24, fontWeight: 700, color: '#1f3a93' }}>{c.count.toLocaleString()}<span style={{ fontSize: 12, color: '#64748b', fontWeight: 400 }}> รายการ</span></div>
               <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 12 }}>
                 <span>เชิงบวก <b style={{ color: '#16a34a' }}>{c.posPct}%</b></span>
-                <span>กลาง <b style={{ color: '#475569' }}>{c.neuPct}%</b></span>
-                <span>เชิงลบ <b style={{ color: c.negPct > 20 ? '#dc2626' : '#f59e0b' }}>{c.negPct}%</b></span>
+                <span>กลาง <b style={{ color: '#f59e0b' }}>{c.neuPct}%</b></span>
+                <span>เชิงลบ <b style={{ color: '#dc2626' }}>{c.negPct}%</b></span>
               </div>
             </div>
           ))}
