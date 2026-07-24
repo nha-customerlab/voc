@@ -61,6 +61,13 @@ export default function VocListView({ rows, initialQ }: { rows: Voc[]; initialQ:
     (!qq || (r.voice + r.topic + r.ref + r.owner + r.project).toLowerCase().includes(qq))
   ), [rows, allTime, range.from, range.to, ptype, projQ, channel, qq]);
 
+  // ประเด็นซ้ำ (recurring) — นับหัวข้อในชุดที่กรอง
+  const topicCount = useMemo(() => {
+    const m: Record<string, number> = {};
+    fr.forEach(r => { if (r.topic) m[r.topic] = (m[r.topic] || 0) + 1; });
+    return m;
+  }, [fr]);
+
   function clearAll() {
     const c = currentFYQuarter(); setBeYear(c.be); setQuarter(c.q);
     setPtype('all'); setProjText(''); setChannel('all'); setQ('');
@@ -112,14 +119,16 @@ export default function VocListView({ rows, initialQ }: { rows: Voc[]; initialQ:
           </div>
           <div className="sub" style={{ marginBottom: 10 }}>พบ {fr.length.toLocaleString()} รายการ</div>
           <table>
-            <thead><tr><th>รหัส</th><th>ช่องทาง</th><th>ประเภทโครงการ</th><th>โครงการ</th><th>หัวข้อ</th><th>เสียงลูกค้า</th><th>Sentiment</th><th>ฝ่าย</th><th>สถานะ</th></tr></thead>
+            <thead><tr><th>รหัส</th><th>ช่องทาง</th><th>ประเภทโครงการ</th><th>โครงการ</th><th>หัวข้อ</th><th>เสียงลูกค้า</th><th>Sentiment</th><th>ความรุนแรง</th><th>ฝ่ายที่เกี่ยวข้อง</th></tr></thead>
             <tbody>{fr.map(r => (
               <tr key={r.id}>
                 <td><Link href={'/voc/' + r.id} className="tag">{r.ref}</Link></td>
-                <td>{r.channel}</td><td>{r.projectType}</td><td>{r.project}</td><td>{r.topic}</td>
+                <td>{r.channel}</td><td>{r.projectType}</td><td>{r.project}</td>
+                <td>{r.topic}{topicCount[r.topic] >= 3 && <span title={`ประเด็นซ้ำ ${topicCount[r.topic]} ครั้ง`} style={{ marginLeft: 6, fontSize: 11, color: '#b45309', background: '#fef3c7', borderRadius: 20, padding: '1px 7px' }}>🔁 ซ้ำ {topicCount[r.topic]}</span>}</td>
                 <td style={{ maxWidth: 240, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={r.voice}>{r.voice}</td>
                 <td><span className={'pill ' + (r.sentiment === 'Positive' ? 'p-pos' : r.sentiment === 'Negative' ? 'p-neg' : 'p-neu')}>{r.sentiment}</span></td>
-                <td>{r.owner}</td><td>{r.status}</td>
+                <td><span className={'pill ' + (r.priority === 'High' ? 'p-hi' : r.priority === 'Medium' ? 'p-md' : 'p-lo')}>{r.priority}</span></td>
+                <td>{r.owner}</td>
               </tr>))}
             </tbody>
           </table>
