@@ -13,10 +13,10 @@ export default function WordCloud({ freq, basePath }: { freq: [string, number][]
     mixed.push(freq[i]); if (i !== j) mixed.push(freq[j]);
   }
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 12px', alignItems: 'baseline', lineHeight: 1.5 }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 18px', alignItems: 'center', justifyContent: 'center', lineHeight: 1.6, padding: '10px 6px' }}>
       {mixed.map(([w, n], i) => {
-        const sz = 14 + Math.round((n - mn) / ((mx - mn) || 1) * 30);
-        const fw = sz > 30 ? 700 : sz > 22 ? 600 : 500;
+        const sz = 15 + Math.round((n - mn) / ((mx - mn) || 1) * 33);
+        const fw = sz > 32 ? 700 : sz > 24 ? 600 : 500;
         return (
           <Link key={w} href={`${basePath}?q=${encodeURIComponent(w)}`}
             title={`${n} รายการ — คลิกเพื่อค้นหา`}
