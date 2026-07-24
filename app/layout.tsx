@@ -30,7 +30,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <NavMenu />
               <ThemeToggle />
             </aside>
-            <div className="main">{children}</div>
+            <div className="main">
+              {children}
+              <footer className="footer">
+                <div>Produced by the Marketing Division, National Housing Authority · Developed by Eksunee Kruttawee</div>
+                <div>© {new Date().getFullYear()} National Housing Authority of Thailand. All rights reserved.</div>
+              </footer>
+            </div>
           </div>
         </AuthGate>
       </body>
