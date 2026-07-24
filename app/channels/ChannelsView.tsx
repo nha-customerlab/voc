@@ -81,7 +81,6 @@ export default function ChannelsView({ rows }: { rows: Voc[] }) {
   const [maxFY, setMaxFY] = useState(2569);
   const [beYear, setBeYear] = useState(2569);
   const [quarter, setQuarter] = useState('q3');
-  const [product, setProduct] = useState('all');
   const [ptype, setPtype] = useState('all');
   const [projText, setProjText] = useState('');
   useEffect(() => { const { be, q } = currentFYQuarter(); setMaxFY(be); setBeYear(be); setQuarter(q); }, []);
@@ -101,10 +100,9 @@ export default function ChannelsView({ rows }: { rows: Voc[] }) {
   // ข้อมูลหลังกรอง — ใช้กับทุกส่วนของหน้า
   const fr = useMemo(() => rows.filter(r =>
     (allTime || (r.occurredAt >= range.from && r.occurredAt <= range.to)) &&
-    (product === 'all' || r.product === product) &&
     (ptype === 'all' || r.projectType === ptype) &&
     (!projQ || (r.project || '').toLowerCase().includes(projQ))
-  ), [rows, allTime, range.from, range.to, product, ptype, projQ]);
+  ), [rows, allTime, range.from, range.to, ptype, projQ]);
 
   const stats = useMemo(() => CHANNELS.map(name => {
     const r = fr.filter(x => x.channel === name);
@@ -139,10 +137,6 @@ export default function ChannelsView({ rows }: { rows: Voc[] }) {
           </select>
           <select style={selStyle} value={quarter} onChange={e => setQuarter(e.target.value)} disabled={allTime}>
             {QUARTERS.map(q => <option key={q.k} value={q.k}>{q.label}</option>)}
-          </select>
-          <select style={selStyle} value={product} onChange={e => setProduct(e.target.value)}>
-            <option value="all">ทุกกลุ่มผลิตภัณฑ์</option>
-            {PRODUCTS.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
           <select style={selStyle} value={ptype} onChange={e => { setPtype(e.target.value); setProjText(''); }}>
             <option value="all">ทุกประเภทโครงการ</option>
