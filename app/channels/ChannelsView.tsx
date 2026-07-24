@@ -29,6 +29,30 @@ function Face({ kind, color, size = 72 }: { kind: 'smile' | 'flat' | 'frown'; co
   );
 }
 
+const PALETTE = ['#2e6cf0', '#16a34a', '#f59e0b', '#8b5cf6', '#0ea5e9'];
+
+// Donut chart (SVG) — สัดส่วนตามแหล่งที่มา
+function Donut({ data, size = 150 }: { data: { label: string; value: number; color: string }[]; size?: number }) {
+  const total = data.reduce((a, d) => a + d.value, 0) || 1;
+  let acc = 0;
+  return (
+    <svg viewBox="0 0 42 42" width={size} height={size} aria-hidden="true">
+      <circle cx="21" cy="21" r="15.915" fill="none" stroke="var(--line)" strokeWidth="5" />
+      {data.map((d, i) => {
+        const seg = d.value / total * 100;
+        const el = (
+          <circle key={i} cx="21" cy="21" r="15.915" fill="none" stroke={d.color} strokeWidth="5"
+            strokeDasharray={`${seg} ${100 - seg}`} strokeDashoffset={25 - acc} strokeLinecap="butt" />
+        );
+        acc += seg;
+        return el;
+      })}
+      <text x="21" y="20.5" textAnchor="middle" style={{ fontSize: 6, fontWeight: 700, fill: 'var(--ink)' }}>{total}</text>
+      <text x="21" y="26" textAnchor="middle" style={{ fontSize: 2.6, fill: 'var(--muted)' }}>รายการ</text>
+    </svg>
+  );
+}
+
 export default function ChannelsView({ rows }: { rows: Voc[] }) {
   const [sel, setSel] = useState<string | null>(null);
 
@@ -118,13 +142,10 @@ export default function ChannelsView({ rows }: { rows: Voc[] }) {
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{i + 1}. {c.name}</span>
               </h3>
               <div style={{ fontSize: 24, fontWeight: 700, color: '#1f3a93' }}>{c.count.toLocaleString()}<span style={{ fontSize: 12, color: '#64748b', fontWeight: 400 }}> รายการ</span></div>
-              <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-                {([['smile', c.posPct, '#16a34a'], ['flat', c.neuPct, '#f59e0b'], ['frown', c.negPct, '#dc2626']] as const).map(([k, pct, col]) => (
-                  <div key={k} style={{ flex: 1, textAlign: 'center' }}>
-                    <div style={{ display: 'flex', justifyContent: 'center' }}><Face kind={k} color={col} size={30} /></div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: col, marginTop: 2 }}>{pct}%</div>
-                  </div>
-                ))}
+              <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 12 }}>
+                <span>เชิงบวก <b style={{ color: '#16a34a' }}>{c.posPct}%</b></span>
+                <span>กลาง <b style={{ color: '#475569' }}>{c.neuPct}%</b></span>
+                <span>เชิงลบ <b style={{ color: c.negPct > 20 ? '#dc2626' : '#f59e0b' }}>{c.negPct}%</b></span>
               </div>
             </div>
           ))}
@@ -197,19 +218,18 @@ function ChannelDetail({ rows, name, onBack }: { rows: Voc[]; name: string; onBa
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 16, marginBottom: 16 }}>
             <div className="card" style={{ marginBottom: 0 }}><h3>แนวโน้มรายวัน</h3><TrendChart points={trend} /></div>
-            {/* Sentiment — แท่ง stacked ตามอารมณ์ */}
+            {/* Sentiment — ใบหน้ายิ้ม/นิ่ง/เศร้า */}
             <div className="card" style={{ marginBottom: 0 }}>
               <h3>สัดส่วน Sentiment</h3>
-              <div style={{ display: 'flex', height: 24, borderRadius: 8, overflow: 'hidden', background: '#eef2f7', marginTop: 6 }}
-                title={`บวก ${posPct}% · กลาง ${neuPct}% · ลบ ${negPct}%`}>
-                <div style={{ width: posPct + '%', background: '#16a34a' }} />
-                <div style={{ width: neuPct + '%', background: '#f59e0b' }} />
-                <div style={{ width: negPct + '%', background: '#dc2626' }} />
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 12, fontSize: 13 }}>
-                <span><b style={{ color: '#16a34a' }}>●</b> เชิงบวก <b>{sent.Positive}</b> ({posPct}%)</span>
-                <span><b style={{ color: '#f59e0b' }}>●</b> เป็นกลาง <b>{sent.Neutral}</b> ({neuPct}%)</span>
-                <span><b style={{ color: '#dc2626' }}>●</b> เชิงลบ <b>{sent.Negative}</b> ({negPct}%)</span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10, marginTop: 8, textAlign: 'center' }}>
+                {([['smile', sent.Positive, posPct, '#16a34a', 'เชิงบวก'], ['flat', sent.Neutral, neuPct, '#f59e0b', 'เป็นกลาง'], ['frown', sent.Negative, negPct, '#dc2626', 'เชิงลบ']] as const).map(([k, n, pct, col, lab]) => (
+                  <div key={k} style={{ padding: '8px 4px', borderRadius: 10, background: col + '10' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center' }}><Face kind={k} color={col} size={52} /></div>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: col, marginTop: 4 }}>{pct}%</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>{n} เสียง</div>
+                    <div style={{ fontSize: 12, fontWeight: 600 }}>{lab}</div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -235,16 +255,25 @@ function ChannelDetail({ rows, name, onBack }: { rows: Voc[]; name: string; onBa
                 </div>
               ))}
             </div>
-            {/* สัดส่วนตามแหล่งที่มา (ทั้งช่องทาง) */}
+            {/* สัดส่วนตามแหล่งที่มา — Donut (ช่องทางที่มี >1 แหล่ง) */}
             <div className="card">
               <h3>สัดส่วนตามแหล่งที่มา</h3>
-              {sources.map(([k, v]) => (
-                <div key={k} style={{ margin: '9px 0', cursor: 'pointer' }} onClick={() => setSource(k)}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 3 }}><span>{k}{source === k ? ' ✓' : ''}</span><span style={{ fontWeight: 600 }}>{v} ({Math.round(v / srcTotal * 100)}%)</span></div>
-                  <div style={{ height: 8, background: '#eef2f7', borderRadius: 6 }}><div style={{ width: Math.round(v / srcTotal * 100) + '%', height: '100%', background: '#0ea5e9', borderRadius: 6 }} /></div>
+              {sources.length > 1 ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                  <Donut data={sources.map(([k, v], i) => ({ label: k, value: v, color: PALETTE[i % PALETTE.length] }))} size={140} />
+                  <div style={{ flex: 1, minWidth: 120 }}>
+                    {sources.map(([k, v], i) => (
+                      <div key={k} onClick={() => setSource(k)} title="คลิกเพื่อกรองดูเฉพาะแหล่งนี้"
+                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', cursor: 'pointer', fontSize: 13, fontWeight: source === k ? 700 : 400 }}>
+                        <span><b style={{ color: PALETTE[i % PALETTE.length] }}>●</b> {k}{source === k ? ' ✓' : ''}</span>
+                        <span style={{ fontWeight: 600 }}>{v} ({Math.round(v / srcTotal * 100)}%)</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
-              <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 6 }}>คลิกแหล่งเพื่อกรองดูเฉพาะแหล่งนั้น</div>
+              ) : (
+                <div style={{ fontSize: 13, color: 'var(--muted)' }}>ช่องทางนี้มีแหล่งเดียว: <b style={{ color: 'var(--ink)' }}>{sources[0]?.[0] || name}</b> ({srcTotal} รายการ)</div>
+              )}
             </div>
           </div>
 
