@@ -17,10 +17,10 @@ const SENT_TH: Record<string, string> = { Positive: 'เชิงบวก', Neu
 const SENT_COLOR: Record<string, string> = { Positive: '#16a34a', Neutral: '#f59e0b', Negative: '#dc2626' };
 
 // หน้ายิ้ม/นิ่ง/เศร้า เป็น SVG
-function Face({ kind, color }: { kind: 'smile' | 'flat' | 'frown'; color: string }) {
+function Face({ kind, color, size = 72 }: { kind: 'smile' | 'flat' | 'frown'; color: string; size?: number }) {
   const mouth = kind === 'smile' ? 'M32 60 Q50 76 68 60' : kind === 'frown' ? 'M32 66 Q50 50 68 66' : 'M34 62 H66';
   return (
-    <svg viewBox="0 0 100 100" width="72" height="72" aria-hidden="true">
+    <svg viewBox="0 0 100 100" width={size} height={size} aria-hidden="true">
       <circle cx="50" cy="50" r="42" fill={color + '22'} stroke={color} strokeWidth="4" />
       <circle cx="37" cy="42" r="5.5" fill={color} />
       <circle cx="63" cy="42" r="5.5" fill={color} />
@@ -118,17 +118,20 @@ export default function ChannelsView({ rows }: { rows: Voc[] }) {
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{i + 1}. {c.name}</span>
               </h3>
               <div style={{ fontSize: 24, fontWeight: 700, color: '#1f3a93' }}>{c.count.toLocaleString()}<span style={{ fontSize: 12, color: '#64748b', fontWeight: 400 }}> รายการ</span></div>
-              <div style={{ display: 'flex', gap: 12, marginTop: 8, fontSize: 12 }}>
-                <span>บวก <b style={{ color: '#16a34a' }}>{c.posPct}%</b></span>
-                <span>กลาง <b style={{ color: '#475569' }}>{c.neuPct}%</b></span>
-                <span>ลบ <b style={{ color: c.negPct > 20 ? '#dc2626' : '#f59e0b' }}>{c.negPct}%</b></span>
+              <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+                {([['smile', c.posPct, '#16a34a'], ['flat', c.neuPct, '#f59e0b'], ['frown', c.negPct, '#dc2626']] as const).map(([k, pct, col]) => (
+                  <div key={k} style={{ flex: 1, textAlign: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center' }}><Face kind={k} color={col} size={30} /></div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: col, marginTop: 2 }}>{pct}%</div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}
         </div>
 
         {/* ===== รายละเอียดเฉพาะช่องทาง (แสดงด้านล่างเมื่อเลือก) ===== */}
-        {sel && <ChannelDetail rows={rows.filter(r => r.channel === sel)} name={sel} onBack={() => setSel(null)} />}
+        {sel && <ChannelDetail key={sel} rows={rows.filter(r => r.channel === sel)} name={sel} onBack={() => setSel(null)} />}
       </div>
     </>
   );
@@ -246,7 +249,7 @@ function ChannelDetail({ rows, name, onBack }: { rows: Voc[]; name: string; onBa
           </div>
 
           <div className="card" style={{ marginTop: 16 }}>
-            <h3>☁️ Word Cloud — คำที่พูดถึงมากในช่องทางนี้ (คำเยอะ = ตัวใหญ่ · คลิกคำเพื่อค้นหา)</h3>
+            <h3>☁️ Word Cloud — คำที่พูดถึงมากในช่องทางนี้ (คลิกคำเพื่อค้นหา)</h3>
             <div style={{ padding: '10px 4px' }}><WordCloud freq={cloud} basePath="/voc" /></div>
           </div>
 
