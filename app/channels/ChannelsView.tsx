@@ -135,74 +135,126 @@ export default function ChannelsView({ rows }: { rows: Voc[] }) {
 }
 
 function ChannelDetail({ rows, name, onBack }: { rows: Voc[]; name: string; onBack: () => void }) {
-  const total = rows.length || 1;
-  const sent = { Positive: 0, Neutral: 0, Negative: 0 };
-  rows.forEach(r => sent[r.sentiment]++);
-  const high = rows.filter(r => r.priority === 'High').length;
+  // แหล่งที่มาในช่องทาง (เช่น Social → Facebook / Line OA)
+  const allSources = Array.from(new Set(rows.map(r => r.source).filter(Boolean))) as string[];
+  const [source, setSource] = useState('all');
+  const view = source === 'all' ? rows : rows.filter(r => r.source === source);
+  const total = view.length || 1;
 
-  const jr: Record<string, number> = {}; rows.forEach(r => { if (r.journey) jr[r.journey] = (jr[r.journey] || 0) + 1; });
+  const sent = { Positive: 0, Neutral: 0, Negative: 0 };
+  view.forEach(r => sent[r.sentiment]++);
+  const posPct = Math.round(sent.Positive / total * 100);
+  const neuPct = Math.round(sent.Neutral / total * 100);
+  const negPct = Math.round(sent.Negative / total * 100);
+  const high = view.filter(r => r.priority === 'High').length;
+
+  const jr: Record<string, number> = {}; view.forEach(r => { if (r.journey) jr[r.journey] = (jr[r.journey] || 0) + 1; });
   const journey = Object.entries(jr).sort((a, b) => b[1] - a[1]);
-  const tp: Record<string, number> = {}; rows.forEach(r => { if (r.topic) tp[r.topic] = (tp[r.topic] || 0) + 1; });
+  const jmax = Math.max(...journey.map(j => j[1]), 1);
+  const tp: Record<string, number> = {}; view.forEach(r => { if (r.topic) tp[r.topic] = (tp[r.topic] || 0) + 1; });
   const topTopics = Object.entries(tp).sort((a, b) => b[1] - a[1]).slice(0, 6);
-  const src: Record<string, number> = {}; rows.forEach(r => { const s = r.source || name; src[s] = (src[s] || 0) + 1; });
-  const sources = Object.entries(src).sort((a, b) => b[1] - a[1]);
-  const byDay: Record<string, number> = {}; rows.forEach(r => { if (r.occurredAt) byDay[r.occurredAt] = (byDay[r.occurredAt] || 0) + 1; });
+  const tmax = Math.max(...topTopics.map(t => t[1]), 1);
+  // สัดส่วนตามแหล่งที่มา (เทียบทั้งช่องทาง — ไม่ขึ้นกับแท็บ)
+  const srcAgg: Record<string, number> = {}; rows.forEach(r => { const s = r.source || name; srcAgg[s] = (srcAgg[s] || 0) + 1; });
+  const sources = Object.entries(srcAgg).sort((a, b) => b[1] - a[1]);
+  const srcTotal = rows.length || 1;
+  const byDay: Record<string, number> = {}; view.forEach(r => { if (r.occurredAt) byDay[r.occurredAt] = (byDay[r.occurredAt] || 0) + 1; });
   const trend = Object.entries(byDay).sort((a, b) => a[0].localeCompare(b[0])).map(([d, v]) => ({ label: d.slice(5).split('-').reverse().join('/'), value: v }));
-  const cloud = computeCloud(rows);
+  const cloud = computeCloud(view);
+
+  const tabBtn = (active: boolean): React.CSSProperties => ({
+    fontSize: 12.5, padding: '5px 14px', borderRadius: 20, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
+    border: '1px solid ' + (active ? '#1f3a93' : 'var(--line)'), background: active ? '#1f3a93' : 'transparent', color: active ? '#fff' : 'inherit',
+  });
 
   return (
     <div style={{ marginTop: 20, paddingTop: 4, borderTop: '2px dashed var(--line)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '14px 0' }}>
-        <h2 style={{ fontSize: 18 }}>{ICON[name]} เจาะลึกช่องทาง: {name}</h2>
-        <button className="btn" style={{ background: '#64748b' }} onClick={onBack}>← กลับดูทุกช่องทาง</button>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, margin: '14px 0' }}>
+        <h2 style={{ fontSize: 18 }}>{ICON[name]} แดชบอร์ดเฉพาะช่องทาง: {name}</h2>
+        <button className="btn" style={{ background: '#64748b' }} onClick={onBack}>✕ ดูทุกช่องทาง</button>
       </div>
 
-      {rows.length === 0 ? <div className="card">ยังไม่มีข้อมูลในช่องทางนี้</div> : (
+      {/* แท็บแยกตามแหล่งที่มา */}
+      {allSources.length > 1 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+          <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>แยกตามแหล่งที่มา:</span>
+          <button style={tabBtn(source === 'all')} onClick={() => setSource('all')}>ทั้งหมด</button>
+          {allSources.map(s => <button key={s} style={tabBtn(source === s)} onClick={() => setSource(s)}>{s}</button>)}
+        </div>
+      )}
+
+      {view.length === 0 ? <div className="card">ยังไม่มีข้อมูลในแหล่งนี้</div> : (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 12, marginBottom: 16 }}>
-            <div className="card" style={{ marginBottom: 0 }}><div style={{ fontSize: 12, color: '#64748b' }}>จำนวนเสียงลูกค้า</div><div style={{ fontSize: 26, fontWeight: 700, color: '#1f3a93' }}>{rows.length.toLocaleString()}</div></div>
-            <div className="card" style={{ marginBottom: 0 }}><div style={{ fontSize: 12, color: '#64748b' }}>% เสียงเชิงบวก</div><div style={{ fontSize: 26, fontWeight: 700, color: '#16a34a' }}>{Math.round(sent.Positive / total * 100)}%</div></div>
-            <div className="card" style={{ marginBottom: 0 }}><div style={{ fontSize: 12, color: '#64748b' }}>% เสียงเชิงลบ</div><div style={{ fontSize: 26, fontWeight: 700, color: '#dc2626' }}>{Math.round(sent.Negative / total * 100)}%</div></div>
+            <div className="card" style={{ marginBottom: 0 }}><div style={{ fontSize: 12, color: '#64748b' }}>จำนวนรายการ{source !== 'all' ? ` (${source})` : ''}</div><div style={{ fontSize: 26, fontWeight: 700, color: '#1f3a93' }}>{view.length.toLocaleString()}</div></div>
+            <div className="card" style={{ marginBottom: 0 }}><div style={{ fontSize: 12, color: '#64748b' }}>% เสียงเชิงบวก</div><div style={{ fontSize: 26, fontWeight: 700, color: '#16a34a' }}>{posPct}%</div></div>
+            <div className="card" style={{ marginBottom: 0 }}><div style={{ fontSize: 12, color: '#64748b' }}>% เสียงเชิงลบ</div><div style={{ fontSize: 26, fontWeight: 700, color: '#dc2626' }}>{negPct}%</div></div>
             <div className="card" style={{ marginBottom: 0 }}><div style={{ fontSize: 12, color: '#64748b' }}>เร่งด่วนสูง (High)</div><div style={{ fontSize: 26, fontWeight: 700, color: '#f59e0b' }}>{high}</div></div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 16, marginBottom: 16 }}>
             <div className="card" style={{ marginBottom: 0 }}><h3>แนวโน้มรายวัน</h3><TrendChart points={trend} /></div>
+            {/* Sentiment — แท่ง stacked ตามอารมณ์ */}
             <div className="card" style={{ marginBottom: 0 }}>
-              <h3>แหล่งที่มาในช่องทางนี้</h3>
-              {sources.map(([k, v]) => (
-                <div key={k} style={{ margin: '10px 0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 3 }}><span>{k}</span><span style={{ fontWeight: 600 }}>{v} ({Math.round(v / total * 100)}%)</span></div>
-                  <div style={{ height: 8, background: '#eef2f7', borderRadius: 6 }}><div style={{ width: Math.round(v / total * 100) + '%', height: '100%', background: '#2e6cf0', borderRadius: 6 }} /></div>
-                </div>
-              ))}
+              <h3>สัดส่วน Sentiment</h3>
+              <div style={{ display: 'flex', height: 24, borderRadius: 8, overflow: 'hidden', background: '#eef2f7', marginTop: 6 }}
+                title={`บวก ${posPct}% · กลาง ${neuPct}% · ลบ ${negPct}%`}>
+                <div style={{ width: posPct + '%', background: '#16a34a' }} />
+                <div style={{ width: neuPct + '%', background: '#f59e0b' }} />
+                <div style={{ width: negPct + '%', background: '#dc2626' }} />
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 12, fontSize: 13 }}>
+                <span><b style={{ color: '#16a34a' }}>●</b> เชิงบวก <b>{sent.Positive}</b> ({posPct}%)</span>
+                <span><b style={{ color: '#f59e0b' }}>●</b> เป็นกลาง <b>{sent.Neutral}</b> ({neuPct}%)</span>
+                <span><b style={{ color: '#dc2626' }}>●</b> เชิงลบ <b>{sent.Negative}</b> ({negPct}%)</span>
+              </div>
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 16 }}>
+            {/* Customer Journey — แท่งแนวนอน */}
             <div className="card">
-              <h3>สัดส่วน Sentiment</h3>
-              {(['Positive', 'Neutral', 'Negative'] as const).map(s => (
-                <div key={s} style={{ margin: '10px 0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 3 }}><span>{SENT_TH[s]}</span><span style={{ fontWeight: 600 }}>{sent[s]} ({Math.round(sent[s] / total * 100)}%)</span></div>
-                  <div style={{ height: 8, background: '#eef2f7', borderRadius: 6 }}><div style={{ width: Math.round(sent[s] / total * 100) + '%', height: '100%', background: SENT_COLOR[s], borderRadius: 6 }} /></div>
+              <h3>การกระจายตาม Customer Journey</h3>
+              {journey.map(([k, v]) => (
+                <div key={k} style={{ margin: '9px 0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 3 }}><span>{k}</span><span style={{ fontWeight: 600, color: '#1f3a93' }}>{v}</span></div>
+                  <div style={{ height: 8, background: '#eef2f7', borderRadius: 6 }}><div style={{ width: Math.round(v / jmax * 100) + '%', height: '100%', background: '#2e6cf0', borderRadius: 6 }} /></div>
                 </div>
               ))}
             </div>
-            <div className="card"><h3>Customer Journey</h3>{journey.map(([k, v]) => (<div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span>{k}</span><span style={{ fontWeight: 600, color: '#1f3a93' }}>{v}</span></div>))}</div>
-            <div className="card"><h3>ประเด็นที่พูดถึงมาก</h3>{topTopics.map(([k, v]) => (<div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--line)', fontSize: 13 }}><span>{k}</span><span style={{ fontWeight: 600 }}>{v}</span></div>))}</div>
+            {/* หัวข้อที่พบบ่อย — แท่งแนวนอน */}
+            <div className="card">
+              <h3>หัวข้อที่พบบ่อย</h3>
+              {topTopics.map(([k, v]) => (
+                <div key={k} style={{ margin: '9px 0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 3 }}><span>{k}</span><span style={{ fontWeight: 600 }}>{v}</span></div>
+                  <div style={{ height: 8, background: '#eef2f7', borderRadius: 6 }}><div style={{ width: Math.round(v / tmax * 100) + '%', height: '100%', background: '#8b5cf6', borderRadius: 6 }} /></div>
+                </div>
+              ))}
+            </div>
+            {/* สัดส่วนตามแหล่งที่มา (ทั้งช่องทาง) */}
+            <div className="card">
+              <h3>สัดส่วนตามแหล่งที่มา</h3>
+              {sources.map(([k, v]) => (
+                <div key={k} style={{ margin: '9px 0', cursor: 'pointer' }} onClick={() => setSource(k)}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 3 }}><span>{k}{source === k ? ' ✓' : ''}</span><span style={{ fontWeight: 600 }}>{v} ({Math.round(v / srcTotal * 100)}%)</span></div>
+                  <div style={{ height: 8, background: '#eef2f7', borderRadius: 6 }}><div style={{ width: Math.round(v / srcTotal * 100) + '%', height: '100%', background: '#0ea5e9', borderRadius: 6 }} /></div>
+                </div>
+              ))}
+              <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 6 }}>คลิกแหล่งเพื่อกรองดูเฉพาะแหล่งนั้น</div>
+            </div>
           </div>
 
           <div className="card" style={{ marginTop: 16 }}>
-            <h3>☁️ Word Cloud — คำที่พูดถึงมากในช่องทางนี้ (คลิกคำเพื่อค้นหา)</h3>
-            <WordCloud freq={cloud} basePath="/voc" />
+            <h3>☁️ Word Cloud — คำที่พูดถึงมากในช่องทางนี้ (คำเยอะ = ตัวใหญ่ · คลิกคำเพื่อค้นหา)</h3>
+            <div style={{ padding: '10px 4px' }}><WordCloud freq={cloud} basePath="/voc" /></div>
           </div>
 
           <div className="card">
-            <h3>เสียงลูกค้าล่าสุดในช่องทางนี้</h3>
+            <h3>รายการ VOC ของช่องทางนี้{source !== 'all' ? ` · ${source}` : ''}</h3>
             <table>
               <thead><tr><th>รหัส</th><th>แหล่ง</th><th>ประเด็น / เสียงลูกค้า</th><th>Sentiment</th><th>สถานะ</th></tr></thead>
-              <tbody>{rows.slice(0, 20).map(r => (
+              <tbody>{view.slice(0, 20).map(r => (
                 <tr key={r.id}>
                   <td style={{ whiteSpace: 'nowrap' }}><Link href={'/voc/' + r.id} className="tag">{r.ref}</Link></td>
                   <td style={{ whiteSpace: 'nowrap' }}>{r.source}</td>
